@@ -3,14 +3,15 @@ from tkinter import ttk
 from socket import *
 import runpy
 
+from sqlalchemy import create_engine, event
 from datetime import datetime
 from subprocess import call
  
+import urllib
 import pandas as pd
 import psutil
+import pyodbc
 import numpy as np
-
-
 
 
 root1 = Tk()     # создаем корневой объект - окно
@@ -46,16 +47,26 @@ def click_btn_first():
 	class Client():
 		cli = socket(AF_INET, SOCK_STREAM)
 
-		cli.connect(("192.168.56.1", 7000)) #Нужны переменные которым будет передоваться инфа от полей ввода.
+		cli.connect((f'192.168.56.1', 7000)) #Нужны переменные которым будет передоваться инфа от полей ввода.
 
-		data = cli.recv( 1024 )
+		data = cli.recv( 10240 )
 		mag = data.decode('utf-8')
 
 		print(f'Server message: \n\t{mag}')
 
 		cli.send('SLAAAY'.encode('utf-8'))
+		peniss=psutil.virtual_memory()
+		y = cli.send(f'{peniss}'.encode('utf-8'))
+		print(f'{y} \n\t{mag}')
 
-		input('End operation') 
+		yu = psutil.cpu_times()
+		yu = cli.send(f'{peniss}'.encode('utf-8'))
+		print(f'{yu} \n\t{mag}')
+
+		input('End operation')
+		
+
+
 
 
 btn=Button(text='Подключится',background="grey12", border = 0, font="helvetica 13", foreground="green", command=click_btn_first)

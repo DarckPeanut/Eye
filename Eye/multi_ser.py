@@ -1,66 +1,77 @@
-import sys
-import socket
-import selectors
-import types
+from sqlalchemy import create_engine, event
+from datetime import datetime
+from subprocess import call
+ 
+import urllib
+import pandas as pd
+import psutil
+import pyodbc
+import numpy as np
 
-sel = selectors.DefaultSelector()
-
-# ...
-
-host= '192.168.56.1'
-port = 7000
-lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-lsock.bind((host, port))
-lsock.listen()
-print(f"Listening on {(host, port)}")
-lsock.setblocking(False)
-sel.register(lsock, selectors.EVENT_READ, data=None)
-
-# multiconn-server.py
-
-# ...
+from socket import *
 
 
+ser = socket( AF_INET, SOCK_STREAM )
 
-def accept_wrapper(sock):
-    conn, addr = sock.accept()  # Should be ready to read
-    print(f"Accepted connection from {addr}")
-    conn.setblocking(False)
-    data = types.SimpleNamespace(addr=addr, inb=b"", outb=b"")
-    events = selectors.EVENT_READ | selectors.EVENT_WRITE
-    sel.register(conn, events, data=data)
+ser.bind(('192.168.56.1', 7000))
+
+ser.listen(5)
 
 
+user, addr = ser.accept()
+print(f"Conected \n{user} \n{addr}\n")
 
-def service_connection(key, mask):
-    sock = key.fileobj
-    data = key.data
-    if mask & selectors.EVENT_READ:
-        recv_data = sock.recv(1024)  # Should be ready to read
-        if recv_data:
-            data.outb += recv_data
-        else:
-            print(f"Closing connection to {data.addr}")
-            sel.unregister(sock)
-            sock.close()
-    if mask & selectors.EVENT_WRITE:
-        if data.outb:
-            print(f"Echoing {data.outb!r} to {data.addr}")
-            sent = sock.send(data.outb)  # Should be ready to write
-            data.outb = data.outb[sent:]
+user.send('I am your Father'.encode('utf-8'))
 
 
-try:
-    while True:
-        events = sel.select(timeout=None)
-        for key, mask in events:
-            if key.data is None:
-                accept_wrapper(key.fileobj)
-            else:
-                service_connection(key, mask)
-except KeyboardInterrupt:
-    print("Caught keyboard interrupt, exiting")
-finally:
-    sel.close()
+mag = user.recv(1024).decode('utf-8')
+
+print(f'User  message: \n\t{mag}')
+
+def RecordMetrics():
+ 
+    # dataabase connection - assign to the correct values
+    driver = '{SQL Server}'
+    server = ''
+    user = ''
+    password = ''
+    database = ''
+    table = 'ServerMonitoring'
+ 
+    params = urllib.parse.quote_plus(r'DRIVER={};SERVER={};DATABASE={};UID={};PWD={}'.format(driver, server, database, user, password))
+    conn_str = 'mssql+pyodbc:///?odbc_connect={}'.format(params)
+    engine = create_engine(conn_str)
+ 
+    # gets the disk partitions in order to get a list of NFTS drives
+    drps = psutil.disk_partitions()
+    drives = [dp.device for dp in drps if dp.fstype == 'NTFS']
+ 
+    # initialises the data frame with the appropriate values
+    df = pd.DataFrame(
+        {
+            'CPU': [psutil.cpu_percent()],
+            'VirtualMemory': [psutil.virtual_memory()[2]],
+            'LastBootedAt' : datetime.fromtimestamp(psutil.boot_time()).strftime('%Y-%m-%d %H:%M:%S')
+        })
+ 
+    # records the drive usage for each drive found
+    for drive in drives:
+        df['{}_DriveUsage'.format(drive.replace(":\\",""))] = psutil.disk_usage(drive)[3]
+ 
+    # adds the current date and time stamp
+    df['LoadDate'] = datetime.now()
+     
+    #if_exists="replace" if the table does not yet exist, then add HistoryID (or ID) as the auto-incremented primary key
+    df.to_sql(table, engine, if_exists="append", index=False)
 
 
+def CheckCPU():
+     
+    df_CPU = df.read_sql('SELECT TOP(5) CPU FROM dbo.ServerMonitoring ORDER BY LoadDate DESC', conn_str)
+     
+    avg_CPU = df_CPU['CPU'].mean()
+     
+    # if the CPU Average is above 90%
+    if avg_CPU > 90:
+         
+        print('High CPU Usage Detected: {}%'.format(round(avg_CPU,2)))       
