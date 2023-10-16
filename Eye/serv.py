@@ -21,17 +21,24 @@ user, addr = ser.accept()
 print(f"Conected \n{user} \n{addr}\n")
 
 
-penis=psutil.virtual_memory()
-xyi=psutil.cpu_times()
-print(f'\n {xyi} \n')
+penis=psutil.virtual_memory().percent
+xyi=psutil.cpu_percent(interval=None, percpu=False)
+print(f'\n percent={xyi} \n')
 print(f'\n {penis} \n')
 
-user.send('I am your Father'.encode('utf-8'))
+user.send(f'Gpu using stats percent={penis} CPU using stats percent={xyi} I am your Father conected \n{user} \n{addr}\n'.encode('utf-8'))
+user.send(f'\n\n\n\n\n percent={penis}'.encode('utf-8'))
+user.send(f'\n\n\n\n\n\n\n percent={xyi}'.encode('utf-8'))
+
+#user.send(f'\n \n CPU using stats {xyi}'.encode('utf-8'))
+# user.send(f'CPU using stats {xyi}'.encode('utf-8'))
+# user.send('I am your Father'.encode('utf-8'))
 
 
 mag = user.recv(10240).decode('utf-8')
 
 print(f'User  message: \n\t{mag}')
+
 
 
 
